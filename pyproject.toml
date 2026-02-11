@@ -5,15 +5,20 @@ description = "Add your description here"
 requires-python = "==3.10.*"
 dependencies = [
     "datasets>=2.19.1",
+    "huggingface-hub>=1.4.1",
     "ipykernel>=7.2.0",
+    "ipywidgets>=8.1.8",
     "jupyterlab-widgets>=3.0.16",
+    "python-dotenv>=1.2.1",
+    "tokenizers>=0.22.2",
+    "torch>=2.10.0",
 ]
 
 [[tool.uv.index]]
 url = "https://download.pytorch.org/whl/cpu"
-
 # import: pip install -r requirements.txt
 # export: uv export --format=requirements-txt > requirements.txt
 # colab optimized import: pip install -r requirements_colab.txt
 # ipykernel, jupyterlab, jupyterlab-widgets, nn, numpy, sentencepiece, tokenizers, torch, datasets
-# $ uv venv --python 3.13
+# uv venv --python 3.13
+# uv add torch --index "https://download.pytorch.org/whl/cpu"
