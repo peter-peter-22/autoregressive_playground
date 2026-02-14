@@ -13,7 +13,7 @@ def tokenizer_lite_dataset():
     total_length = 0
 
     # dataset
-    no_robots_ds = load_dataset("HuggingFaceH4/no_robots", streaming=True, split="test").select_columns(
+    no_robots_ds = load_dataset("HuggingFaceH4/no_robots", split="test").select_columns(
         ["messages"])
     total_length += no_robots_ds.dataset_size
 
@@ -30,22 +30,22 @@ def tokenizer_real_dataset():
     total_length = 0
 
     # no robots
-    no_robots_ds = load_dataset("HuggingFaceH4/no_robots", streaming=True, split="test").select_columns(["messages"])
+    no_robots_ds = load_dataset("HuggingFaceH4/no_robots", split="test").select_columns(["messages"])
     total_length += no_robots_ds.dataset_size
 
     # wiki
-    wiki_ds = load_dataset("rahular/simple-wikipedia", streaming=True, split="train").select_columns(["text"])
+    wiki_ds = load_dataset("rahular/simple-wikipedia", split="train").select_columns(["text"])
     reduced_count = int(wiki_ds.dataset_size / 100)
     wiki_ds = wiki_ds.take(reduced_count)
     total_length += reduced_count
 
     # tiny stories
-    tiny_stories_ds = load_dataset("roneneldan/TinyStories", streaming=True, split="validation").select_columns(
+    tiny_stories_ds = load_dataset("roneneldan/TinyStories", split="validation").select_columns(
         ["text"])
     total_length += tiny_stories_ds.dataset_size
 
     # tiny textbooks
-    tiny_textbooks_ds = load_dataset("nampdn-ai/tiny-textbooks", streaming=True, split="test").select_columns(
+    tiny_textbooks_ds = load_dataset("nampdn-ai/tiny-textbooks", split="test").select_columns(
         ["textbook"])
     total_length += tiny_textbooks_ds.dataset_size
 
