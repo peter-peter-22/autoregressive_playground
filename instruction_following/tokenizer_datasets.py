@@ -34,8 +34,8 @@ def tokenizer_real_dataset():
     total_length += no_robots_ds.dataset_size
 
     # wiki
-    wiki_ds = load_dataset("rahular/simple-wikipedia", split="train").select_columns(["text"])
-    reduced_count = int(wiki_ds.dataset_size / 100)
+    wiki_ds = load_dataset("jordiclive/wikipedia-summary-dataset", split="train").select_columns(["summary"])
+    reduced_count = 500_000
     wiki_ds = wiki_ds.take(reduced_count)
     total_length += reduced_count
 
@@ -56,7 +56,7 @@ def tokenizer_real_dataset():
                 yield msg["content"]
         print("no robots completed")
         for row in wiki_ds:
-            yield row["text"]
+            yield row["summary"]
         print("wiki completed")
         for row in tiny_stories_ds:
             yield row["text"]
