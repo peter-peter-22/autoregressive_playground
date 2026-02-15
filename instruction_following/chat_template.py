@@ -1,4 +1,4 @@
-from instruction_following.tokenizer.special_tokens import special_tokens
+from special_tokens import special_tokens
 
 
 def chat_template(messages: list[dict[str, str]]):
