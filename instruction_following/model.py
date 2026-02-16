@@ -1,9 +1,11 @@
+import math
+
 import torch
 import torch.nn as nn
 
 
 class MultiHeadSelfAttention(nn.Module):
-    def __init__(self, d_model, n_heads, max_context_length):
+    def __init__(self, d_model, n_heads, max_context_length, transformer_blocks: int):
         super().__init__()
 
         assert d_model % n_heads == 0
@@ -16,6 +18,9 @@ class MultiHeadSelfAttention(nn.Module):
         self.value = nn.Linear(d_model, d_model, bias=False)
 
         self.proj = nn.Linear(d_model, d_model)
+
+        # Initialize weight with residual scaling applied
+        self.proj.weight.data *= (1 / math.sqrt(2 * transformer_blocks))
 
         self.register_buffer(
             "mask",
@@ -65,16 +70,23 @@ class Embedding(nn.Module):
 
 
 class FeedForward(nn.Module):
-    def __init__(self, embedding_size, size_multiplier):
+    def __init__(self, embedding_size, size_multiplier, transformer_blocks: int):
         super().__init__()
 
         assert size_multiplier >= 1
+
+        nn.Linear(embedding_size, size_multiplier * embedding_size),
+        nn.GELU(),
+        nn.Linear(size_multiplier * embedding_size, embedding_size)
 
         self.net = nn.Sequential(
             nn.Linear(embedding_size, size_multiplier * embedding_size),
             nn.GELU(),
             nn.Linear(size_multiplier * embedding_size, embedding_size)
         )
+
+        # Initialize weight with residual scaling applied
+        self.net[2].weight.data *= (1 / math.sqrt(2 * transformer_blocks))
 
     def forward(self, x):
         return self.net(x)
@@ -88,21 +100,22 @@ class TransformerBlock(nn.Module):
             attention_heads: int,
             max_context_length: int,
             attention_dropout: float,
-            ff_dropout: float
+            ff_dropout: float,
+            transformer_blocks: int
     ):
         super().__init__()
 
         # attention
         self.attention = nn.Sequential(
             nn.LayerNorm(embedding_size),
-            MultiHeadSelfAttention(embedding_size, attention_heads, max_context_length),
+            MultiHeadSelfAttention(embedding_size, attention_heads, max_context_length, transformer_blocks),
             nn.Dropout(attention_dropout)
         )
 
         # feed forward
         self.ff = nn.Sequential(
             nn.LayerNorm(embedding_size),
-            FeedForward(embedding_size, ff_size_multiplier),
+            FeedForward(embedding_size, ff_size_multiplier, transformer_blocks),
             nn.Dropout(ff_dropout)
         )
 
@@ -138,7 +151,8 @@ class ChatModel(nn.Module):
                     attention_heads,
                     max_context_length,
                     attention_dropout,
-                    ff_dropout
+                    ff_dropout,
+                    transformer_blocks
                 )
                 for _ in range(transformer_blocks)
             ]),
@@ -160,3 +174,19 @@ class ChatModel(nn.Module):
             ids
         )
         return logits, loss
+
+
+if __name__ == "__main__":
+    model = ChatModel(
+        vocabulary_size=1,
+        embedding_size=2,
+        embedding_dropout=0.0,
+        attention_dropout=0.0,
+        max_context_length=1,
+        ff_size_multiplier=1,
+        ff_dropout=0.0,
+        transformer_blocks=2,
+        attention_heads=2
+    )
+    for name, param in model.named_parameters():
+        print(name)
