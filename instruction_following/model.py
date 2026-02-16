@@ -77,7 +77,7 @@ class FeedForward(nn.Module):
         )
 
     def forward(self, x):
-        return x + self.net(x)
+        return self.net(x)
 
 
 class TransformerBlock(nn.Module):
@@ -107,8 +107,8 @@ class TransformerBlock(nn.Module):
         )
 
     def forward(self, x):
-        x += self.attention(x)
-        x += self.ff(x)
+        x = x + self.attention(x)
+        x = x + self.ff(x)
         return x
 
 
