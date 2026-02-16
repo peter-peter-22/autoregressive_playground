@@ -5,7 +5,8 @@ import torch.nn as nn
 
 
 class MultiHeadSelfAttention(nn.Module):
-    def __init__(self, d_model, n_heads, max_context_length, transformer_blocks: int):
+    def __init__(self, d_model, n_heads, max_context_length, transformer_blocks: int, dropout: float, bias: bool,
+                 residual_scaling: bool):
         super().__init__()
 
         assert d_model % n_heads == 0
@@ -13,14 +14,17 @@ class MultiHeadSelfAttention(nn.Module):
         self.n_heads = n_heads
         self.d_head = d_model // n_heads
 
-        self.key = nn.Linear(d_model, d_model, bias=False)
-        self.query = nn.Linear(d_model, d_model, bias=False)
-        self.value = nn.Linear(d_model, d_model, bias=False)
+        # IMPROVE: batch
+        self.key = nn.Linear(d_model, d_model, bias=bias)
+        self.query = nn.Linear(d_model, d_model, bias=bias)
+        self.value = nn.Linear(d_model, d_model, bias=bias)
 
-        self.proj = nn.Linear(d_model, d_model)
+        self.dropout = nn.Dropout(dropout)
+        self.proj = nn.Linear(d_model, d_model, bias=bias)
 
         # Initialize weight with residual scaling applied
-        self.proj.weight.data *= (1 / math.sqrt(2 * transformer_blocks))
+        if residual_scaling:
+            self.proj.weight.data *= (1 / math.sqrt(2 * transformer_blocks))
 
         self.register_buffer(
             "mask",
@@ -46,6 +50,9 @@ class MultiHeadSelfAttention(nn.Module):
         attention = attention.masked_fill(~self.mask[:context_length, :context_length], float('-inf'))
         attention = nn.functional.softmax(attention, dim=-1)
 
+        # Attention score dropout
+        attention = self.dropout(attention)
+
         # Weighted sum
         out = attention @ value
 
@@ -70,14 +77,14 @@ class Embedding(nn.Module):
 
 
 class FeedForward(nn.Module):
-    def __init__(self, embedding_size, size_multiplier, transformer_blocks: int):
+    def __init__(self, embedding_size, size_multiplier, transformer_blocks: int, bias: bool, residual_scaling: bool):
         super().__init__()
 
         assert size_multiplier >= 1
 
-        nn.Linear(embedding_size, size_multiplier * embedding_size),
+        nn.Linear(embedding_size, size_multiplier * embedding_size, bias=bias),
         nn.GELU(),
-        nn.Linear(size_multiplier * embedding_size, embedding_size)
+        nn.Linear(size_multiplier * embedding_size, embedding_size, bias=bias)
 
         self.net = nn.Sequential(
             nn.Linear(embedding_size, size_multiplier * embedding_size),
@@ -86,7 +93,8 @@ class FeedForward(nn.Module):
         )
 
         # Initialize weight with residual scaling applied
-        self.net[2].weight.data *= (1 / math.sqrt(2 * transformer_blocks))
+        if residual_scaling:
+            self.net[2].weight.data *= (1 / math.sqrt(2 * transformer_blocks))
 
     def forward(self, x):
         return self.net(x)
@@ -99,24 +107,33 @@ class TransformerBlock(nn.Module):
             ff_size_multiplier: int,
             attention_heads: int,
             max_context_length: int,
-            attention_dropout: float,
-            ff_dropout: float,
-            transformer_blocks: int
+            transformer_blocks: int,
+            dropout: float,
+            bias: bool,
+            residual_scaling: bool
     ):
         super().__init__()
 
         # attention
         self.attention = nn.Sequential(
-            nn.LayerNorm(embedding_size),
-            MultiHeadSelfAttention(embedding_size, attention_heads, max_context_length, transformer_blocks),
-            nn.Dropout(attention_dropout)
+            nn.LayerNorm(embedding_size, bias=bias),
+            MultiHeadSelfAttention(
+                embedding_size,
+                attention_heads,
+                max_context_length,
+                transformer_blocks,
+                dropout,
+                bias,
+                residual_scaling
+            ),
+            nn.Dropout(dropout)
         )
 
         # feed forward
         self.ff = nn.Sequential(
-            nn.LayerNorm(embedding_size),
-            FeedForward(embedding_size, ff_size_multiplier, transformer_blocks),
-            nn.Dropout(ff_dropout)
+            nn.LayerNorm(embedding_size, bias=bias),
+            FeedForward(embedding_size, ff_size_multiplier, transformer_blocks, bias, residual_scaling),
+            nn.Dropout(dropout)
         )
 
     def forward(self, x):
@@ -131,16 +148,19 @@ class ChatModel(nn.Module):
             vocabulary_size: int,
             embedding_size: int,
             embedding_dropout: float,
-            attention_dropout: float,
             max_context_length: int,
             ff_size_multiplier: int,
-            ff_dropout: float,
             transformer_blocks: int,
             attention_heads: int,
+            dropout: float,
+            bias: bool,
+            weight_tying: bool = True,
+            residual_scaling: bool = True,
             device: str = "cpu"
     ):
         super().__init__()
 
+        # replace sequential, fix weight tying
         self.layers = nn.Sequential(
             Embedding(vocabulary_size, embedding_size, max_context_length, device),
             nn.Dropout(embedding_dropout),
@@ -150,15 +170,22 @@ class ChatModel(nn.Module):
                     ff_size_multiplier,
                     attention_heads,
                     max_context_length,
-                    attention_dropout,
-                    ff_dropout,
-                    transformer_blocks
+                    transformer_blocks,
+                    dropout,
+                    bias,
+                    residual_scaling
                 )
                 for _ in range(transformer_blocks)
             ]),
-            nn.LayerNorm(embedding_size),
-            nn.Linear(embedding_size, vocabulary_size)
+            nn.LayerNorm(embedding_size, bias=bias),
+            nn.Linear(embedding_size, vocabulary_size, bias=False)
         )
+
+        print("embedding", self.layers[0].token_emb)
+        print("head", self.layers[4])
+        # Weight tying
+        if weight_tying:
+            self.layers[4].weight = self.layers[0].token_emb.weight
 
     def forward(self, x, targets=None):
         logits = self.layers(x)
@@ -178,15 +205,15 @@ class ChatModel(nn.Module):
 
 if __name__ == "__main__":
     model = ChatModel(
-        vocabulary_size=1,
+        vocabulary_size=10,
         embedding_size=2,
         embedding_dropout=0.0,
-        attention_dropout=0.0,
         max_context_length=1,
         ff_size_multiplier=1,
-        ff_dropout=0.0,
         transformer_blocks=2,
-        attention_heads=2
+        attention_heads=2,
+        dropout=0,
+        bias=True,
     )
     for name, param in model.named_parameters():
         print(name)
