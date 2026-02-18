@@ -5,22 +5,29 @@ import torch.nn as nn
 
 
 class MultiHeadSelfAttention(nn.Module):
-    def __init__(self, d_model, n_heads, max_context_length, transformer_blocks: int, dropout: float, bias: bool,
-                 residual_scaling: bool):
+    def __init__(
+            self,
+            embedding,
+            n_heads,
+            max_context_length,
+            transformer_blocks: int,
+            dropout: float,
+            bias: bool,
+            residual_scaling: bool
+    ):
         super().__init__()
 
-        assert d_model % n_heads == 0
+        assert embedding % n_heads == 0
 
         self.n_heads = n_heads
-        self.d_head = d_model // n_heads
+        self.d_head = embedding // n_heads
+        self.embedding=embedding
 
-        # IMPROVE: batch
-        self.key = nn.Linear(d_model, d_model, bias=bias)
-        self.query = nn.Linear(d_model, d_model, bias=bias)
-        self.value = nn.Linear(d_model, d_model, bias=bias)
+        # Keep K,Q,V in the same layer
+        self.kqv = nn.Linear(embedding, 3 * embedding, bias=bias)
 
         self.dropout = nn.Dropout(dropout)
-        self.proj = nn.Linear(d_model, d_model, bias=bias)
+        self.proj = nn.Linear(embedding, embedding, bias=bias)
 
         # Initialize weight with residual scaling applied
         if residual_scaling:
@@ -34,10 +41,8 @@ class MultiHeadSelfAttention(nn.Module):
     def forward(self, x):
         batch_size, context_length, embedding_dim = x.shape
 
-        # Project once
-        key = self.key(x)  # (B, T, C)
-        query = self.query(x)
-        value = self.value(x)
+        # Split the shared layer into Q,K,V
+        key, query, value = self.kqv(x).split(self.embedding, dim=2)
 
         # Split into heads
         key = key.view(batch_size, context_length, self.n_heads, self.d_head).transpose(1, 2)
@@ -142,12 +147,20 @@ class TransformerBlock(nn.Module):
         return x
 
 
+def _init_weights(module):
+    if isinstance(module, nn.Linear):
+        torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+        if module.bias is not None:
+            torch.nn.init.zeros_(module.bias)
+    elif isinstance(module, nn.Embedding):
+        torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+
 class ChatModel(nn.Module):
     def __init__(
             self,
             vocabulary_size: int,
             embedding_size: int,
-            embedding_dropout: float,
             max_context_length: int,
             ff_size_multiplier: int,
             transformer_blocks: int,
@@ -160,35 +173,42 @@ class ChatModel(nn.Module):
     ):
         super().__init__()
 
-        # replace sequential, fix weight tying
-        self.layers = nn.Sequential(
-            Embedding(vocabulary_size, embedding_size, max_context_length, device),
-            nn.Dropout(embedding_dropout),
-            nn.Sequential(*[
-                TransformerBlock(
-                    embedding_size,
-                    ff_size_multiplier,
-                    attention_heads,
-                    max_context_length,
-                    transformer_blocks,
-                    dropout,
-                    bias,
-                    residual_scaling
-                )
-                for _ in range(transformer_blocks)
-            ]),
-            nn.LayerNorm(embedding_size, bias=bias),
-            nn.Linear(embedding_size, vocabulary_size, bias=False)
-        )
+        self.emb = Embedding(vocabulary_size, embedding_size, max_context_length, device)
+        self.dropout = nn.Dropout(dropout)
+        self.transformer = nn.Sequential(*[
+            TransformerBlock(
+                embedding_size,
+                ff_size_multiplier,
+                attention_heads,
+                max_context_length,
+                transformer_blocks,
+                dropout,
+                bias,
+                residual_scaling
+            )
+            for _ in range(transformer_blocks)
+        ])
+        self.ln = nn.LayerNorm(embedding_size, bias=bias)
+        self.head = nn.Linear(embedding_size, vocabulary_size, bias=False)
 
-        print("embedding", self.layers[0].token_emb)
-        print("head", self.layers[4])
         # Weight tying
+        # The order does not count, but the weight initialization does
+        # head=emb: 130 loss <1, 220 loss <0.1,
+        # emb=head: 130 loss <1, 230 loss <0.1
+        # Without custom (3x smaller than Kaiming uniform (default)) weight initialization:
+        # Either 130 starting loss or the loss doesn't go below 5 while training.
+        # Since the custom weight initialization is the same for the embedding and projection layers, the order no longer counts
         if weight_tying:
-            self.layers[4].weight = self.layers[0].token_emb.weight
+            self.emb.token_emb.weight = self.head.weight
+
+        self.apply(_init_weights)
 
     def forward(self, x, targets=None):
-        logits = self.layers(x)
+        x = self.emb(x)
+        x = self.dropout(x)
+        x = self.transformer(x)
+        x = self.ln(x)
+        logits = self.head(x)
 
         if targets is None:
             return logits
@@ -207,7 +227,6 @@ if __name__ == "__main__":
     model = ChatModel(
         vocabulary_size=10,
         embedding_size=2,
-        embedding_dropout=0.0,
         max_context_length=1,
         ff_size_multiplier=1,
         transformer_blocks=2,
