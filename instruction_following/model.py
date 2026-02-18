@@ -26,17 +26,24 @@ class MultiHeadSelfAttention(nn.Module):
         self.kqv = nn.Linear(embedding, 3 * embedding, bias=bias)
 
         self.dropout = nn.Dropout(dropout)
+        self.dropout_value = dropout
         self.proj = nn.Linear(embedding, embedding, bias=bias)
 
         # Initialize weight with residual scaling applied
         if residual_scaling:
             self.proj.weight.data *= (1 / math.sqrt(2 * transformer_blocks))
 
-        self.register_buffer(
-            "mask",
-            torch.tril(torch.tril(torch.ones(max_context_length, max_context_length))
-                       .view(1, 1, max_context_length, max_context_length))
-        )
+        self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention')
+        if self.flash:
+            print("using flash attention")
+        else:
+            print("WARNING: using slow attention. Flash Attention requires PyTorch >= 2.0")
+            # causal mask to ensure that attention is only applied to the left in the input sequence
+            self.register_buffer(
+                "mask",
+                torch.tril(torch.tril(torch.ones(max_context_length, max_context_length))
+                           .view(1, 1, max_context_length, max_context_length))
+            )
 
     def forward(self, x):
         batch_size, context_length, embedding_dim = x.size()
@@ -49,16 +56,27 @@ class MultiHeadSelfAttention(nn.Module):
         query = query.view(batch_size, context_length, self.n_heads, embedding_dim // self.n_heads).transpose(1, 2)
         value = value.view(batch_size, context_length, self.n_heads, embedding_dim // self.n_heads).transpose(1, 2)
 
-        # Attention scores
-        attention = (query @ key.transpose(-2, -1)) / (1.0 / math.sqrt(key.size(-1)))
-        attention = attention.masked_fill(self.mask[:, :, :context_length, :context_length] == 0, float('-inf'))
-        attention = nn.functional.softmax(attention, dim=-1)
+        if self.flash:
+            # efficient attention using Flash Attention CUDA kernels
+            out = torch.nn.functional.scaled_dot_product_attention(
+                query,
+                key,
+                value,
+                attn_mask=None,
+                dropout_p=self.dropout_value,
+                is_causal=True
+            )
+        else:
+            # Attention scores
+            attention = (query @ key.transpose(-2, -1)) / (1.0 / math.sqrt(key.size(-1)))
+            attention = attention.masked_fill(self.mask[:, :, :context_length, :context_length] == 0, float('-inf'))
+            attention = nn.functional.softmax(attention, dim=-1)
 
-        # Attention score dropout
-        attention = self.dropout(attention)
+            # Attention score dropout
+            attention = self.dropout(attention)
 
-        # Weighted sum
-        out = attention @ value
+            # Weighted sum
+            out = attention @ value
 
         # Recombine heads
         out = out.transpose(1, 2).contiguous().view(batch_size, context_length, embedding_dim)
