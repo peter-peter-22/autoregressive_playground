@@ -20,8 +20,7 @@ class MultiHeadSelfAttention(nn.Module):
         assert embedding % n_heads == 0
 
         self.n_heads = n_heads
-        self.d_head = embedding // n_heads
-        self.embedding=embedding
+        self.embedding = embedding
 
         # Keep K,Q,V in the same layer
         self.kqv = nn.Linear(embedding, 3 * embedding, bias=bias)
@@ -35,24 +34,24 @@ class MultiHeadSelfAttention(nn.Module):
 
         self.register_buffer(
             "mask",
-            torch.tril(torch.ones(max_context_length, max_context_length)).bool()
+            torch.tril(torch.tril(torch.ones(max_context_length, max_context_length))
+                       .view(1, 1, max_context_length, max_context_length))
         )
 
     def forward(self, x):
-        batch_size, context_length, embedding_dim = x.shape
+        batch_size, context_length, embedding_dim = x.size()
 
         # Split the shared layer into Q,K,V
         key, query, value = self.kqv(x).split(self.embedding, dim=2)
 
         # Split into heads
-        key = key.view(batch_size, context_length, self.n_heads, self.d_head).transpose(1, 2)
-        query = query.view(batch_size, context_length, self.n_heads, self.d_head).transpose(1, 2)
-        value = value.view(batch_size, context_length, self.n_heads, self.d_head).transpose(1, 2)
+        key = key.view(batch_size, context_length, self.n_heads, embedding_dim // self.n_heads).transpose(1, 2)
+        query = query.view(batch_size, context_length, self.n_heads, embedding_dim // self.n_heads).transpose(1, 2)
+        value = value.view(batch_size, context_length, self.n_heads, embedding_dim // self.n_heads).transpose(1, 2)
 
         # Attention scores
-        attention = (query @ key.transpose(-2, -1)) / (self.d_head ** 0.5)
-
-        attention = attention.masked_fill(~self.mask[:context_length, :context_length], float('-inf'))
+        attention = (query @ key.transpose(-2, -1)) / (1.0 / math.sqrt(key.size(-1)))
+        attention = attention.masked_fill(self.mask[:, :, :context_length, :context_length] == 0, float('-inf'))
         attention = nn.functional.softmax(attention, dim=-1)
 
         # Attention score dropout
