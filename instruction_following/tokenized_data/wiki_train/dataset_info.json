@@ -1,0 +1,59 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "default",
+  "dataset_name": "wikipedia-summary-dataset",
+  "dataset_size": 27825921213,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/jordiclive/wikipedia-summary-dataset@5f9e666e90d0ddfd6413089f074019da08cdad52/df_withDescription.parquet": {
+      "num_bytes": 8650642356,
+      "checksum": null
+    },
+    "hf://datasets/jordiclive/wikipedia-summary-dataset@5f9e666e90d0ddfd6413089f074019da08cdad52/df_withoutDescription.parquet": {
+      "num_bytes": 6769092597,
+      "checksum": null
+    }
+  },
+  "download_size": 15419734953,
+  "features": {
+    "tokens": {
+      "feature": {
+        "dtype": "int64",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 43245656166,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 27825921213,
+      "num_examples": 7750007,
+      "shard_lengths": [
+        128655,
+        247055,
+        387109,
+        581335,
+        676782,
+        761875,
+        280637,
+        490669,
+        870964,
+        1095743,
+        1199614,
+        1029569
+      ],
+      "dataset_name": "wikipedia-summary-dataset"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}

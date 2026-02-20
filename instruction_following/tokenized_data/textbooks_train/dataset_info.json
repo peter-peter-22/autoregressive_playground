@@ -1,0 +1,57 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "default",
+  "dataset_name": "tiny-textbooks",
+  "dataset_size": 1749227862,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/nampdn-ai/tiny-textbooks@1f88d0fe47109c17de0671cd8b8f2659f0a1c1ef/tiny-textbooks/train-00000-of-00001.parquet": {
+      "num_bytes": 856930104,
+      "checksum": null
+    },
+    "hf://datasets/nampdn-ai/tiny-textbooks@1f88d0fe47109c17de0671cd8b8f2659f0a1c1ef/tiny-textbooks/test-00000-of-00001.parquet": {
+      "num_bytes": 44944054,
+      "checksum": null
+    }
+  },
+  "download_size": 901874158,
+  "features": {
+    "tokens": {
+      "feature": {
+        "dtype": "int64",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 2651102020,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 1661898143,
+      "num_examples": 399000,
+      "shard_lengths": [
+        121000,
+        120000,
+        120000,
+        38000
+      ],
+      "dataset_name": "tiny-textbooks"
+    },
+    "test": {
+      "name": "test",
+      "num_bytes": 87329719,
+      "num_examples": 21000,
+      "dataset_name": "tiny-textbooks"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}

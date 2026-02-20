@@ -1,0 +1,51 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "default",
+  "dataset_name": "no_robots",
+  "dataset_size": 17384327,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/HuggingFaceH4/no_robots@e6f9a4ac5c37faeb744ba9ecf0473184d7f8105b/data/train-00000-of-00001.parquet": {
+      "num_bytes": 10474682,
+      "checksum": null
+    },
+    "hf://datasets/HuggingFaceH4/no_robots@e6f9a4ac5c37faeb744ba9ecf0473184d7f8105b/data/test-00000-of-00001.parquet": {
+      "num_bytes": 570905,
+      "checksum": null
+    }
+  },
+  "download_size": 11045587,
+  "features": {
+    "tokens": {
+      "feature": {
+        "dtype": "int64",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 28429914,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 16496867,
+      "num_examples": 9500,
+      "dataset_name": "no_robots"
+    },
+    "test": {
+      "name": "test",
+      "num_bytes": 887460,
+      "num_examples": 500,
+      "dataset_name": "no_robots"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}
