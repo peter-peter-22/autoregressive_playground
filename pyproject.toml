@@ -13,6 +13,7 @@ dependencies = [
     "jupyterlab-widgets>=3.0.16",
     "matplotlib>=3.10.8",
     "millify>=0.1.1",
+    "protobuf>=6.33.5",
     "python-dotenv>=1.2.1",
     "sentencepiece>=0.2.1",
     "setuptools>=70.2.0",
@@ -20,6 +21,7 @@ dependencies = [
     "tokenizers>=0.22.2",
     "torch>=2.10.0",
     "torchinfo>=1.8.0",
+    "transformers>=5.2.0",
 ]
 
 [[tool.uv.index]]
