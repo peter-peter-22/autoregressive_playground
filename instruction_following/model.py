@@ -213,7 +213,7 @@ class ChatModel(nn.Module):
         # head=emb: 130 loss <1, 220 loss <0.1,
         # emb=head: 130 loss <1, 230 loss <0.1
         # Without custom (3x smaller than Kaiming uniform (default)) weight initialization:
-        # Either 130 starting loss or the loss doesn't go below 5 while training.
+        # Either abnormally big starting loss or the loss doesn't go below 5 while training.
         # Since the custom weight initialization is the same for the embedding and projection layers, the order no longer counts
         if weight_tying:
             self.emb.token_emb.weight = self.head.weight
