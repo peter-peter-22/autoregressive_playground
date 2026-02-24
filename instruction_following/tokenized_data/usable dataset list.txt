@@ -1,0 +1,14 @@
+nvidia instruction following and QA
+https://huggingface.co/datasets/nvidia/ChatQA2-Long-SFT-data/viewer/long_sft
+
+nvidia web search tools
+https://huggingface.co/datasets/nvidia/Nemotron-RL-knowledge-web_search-mcqa
+
+nvidia agent tools
+https://huggingface.co/datasets/nvidia/Nemotron-RL-agent-workplace_assistant/viewer/default/train?row=0
+
+nvidia structured outputs
+https://huggingface.co/datasets/nvidia/Nemotron-RL-instruction_following-structured_outputs
+
+nvidia RL
+https://huggingface.co/datasets/nvidia/Nemotron-Cascade-RL-Instruction-Following/viewer/default/train?row=4
