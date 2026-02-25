@@ -12,3 +12,12 @@ https://huggingface.co/datasets/nvidia/Nemotron-RL-instruction_following-structu
 
 nvidia RL
 https://huggingface.co/datasets/nvidia/Nemotron-Cascade-RL-Instruction-Following/viewer/default/train?row=4
+
+alpaca cleaned
+https://huggingface.co/datasets/yahma/alpaca-cleaned
+
+HF ultrachat 200k
+https://huggingface.co/datasets/HuggingFaceH4/ultrachat_200k
+
+lmsys chat 1m
+https://huggingface.co/datasets/lmsys/lmsys-chat-1m
