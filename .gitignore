@@ -219,3 +219,6 @@ __marimo__/
 *.bin
 *.pt
 *.arrow
+
+# Secrets
+service_account.json

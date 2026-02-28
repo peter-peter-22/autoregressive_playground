@@ -2,8 +2,9 @@
 name = "pythonproject1"
 version = "0.0.1"
 description = "Add your description here"
-requires-python = "==3.10.*"
+requires-python = "==3.11.*"
 dependencies = [
+    "async-mega-py==2.0.2",
     "datasets>=2.19.1",
     "gdown>=5.2.1",
     "huggingface-hub>=1.4.1",
