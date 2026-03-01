@@ -4,8 +4,10 @@ import os
 from dotenv import load_dotenv
 from mega.client import MegaNzClient
 
+load_dotenv()
 email = os.getenv("MEGA_EMAIL")
 password = os.getenv("MEGA_PASSWORD")
+print(email, password)
 
 
 async def mega_upload(local_path: str):
@@ -19,5 +21,4 @@ async def mega_upload(local_path: str):
 
 
 if __name__ == '__main__':
-    load_dotenv()
-    asyncio.run(mega_upload("output.zip"))  # The progress bar doesn't work with asnycio.run
+    asyncio.run(mega_upload("output.zip"))  # The progress bar doesn't works when started with the run button

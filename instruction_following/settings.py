@@ -5,5 +5,5 @@ class ModelSettings:
     ff_size_multiplier = 4
     transformer_blocks = 12
     attention_heads = 12
-    dropout = 0.1
+    dropout = 0.05
     bias = True
