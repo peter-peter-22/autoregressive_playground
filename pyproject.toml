@@ -34,3 +34,4 @@ url = "https://download.pytorch.org/whl/cu126"
 # ipykernel, jupyterlab, jupyterlab-widgets, nn, numpy, sentencepiece, tokenizers, torch, datasets
 # uv venv --python 3.13
 # uv add torch --index "https://download.pytorch.org/whl/cu126"
+# UV_HTTP_TIMEOUT=99999999999999 uv sync

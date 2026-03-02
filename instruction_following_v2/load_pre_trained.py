@@ -1,7 +1,14 @@
+import os
+
+from huggingface_hub import login
 from millify import millify
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 model_name = "gpt2"  # GPT-2 120M
+
+# Login to prevent download rate limit
+hf_token = os.getenv("HF_TOKEN")
+login(hf_token)
 
 # Load pretrained tokenizer
 tokenizer = AutoTokenizer.from_pretrained(model_name)
