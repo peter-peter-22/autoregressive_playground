@@ -55,7 +55,8 @@ class TrainingLoop:
             data_reader: TrainingDataReader,
             autocast: AutoCastConfig | None,
             gradient_clip: float | None,
-            learning_schedule: LearningScheduler
+            learning_schedule: LearningScheduler,
+            eval_steps: int
     ):
         self.step = 0
         self.model = model
@@ -70,8 +71,28 @@ class TrainingLoop:
         self.gradient_clip = gradient_clip
         self.inference = inference
         self.learning_schedule = learning_schedule
+        self.eval_steps = eval_steps
+
+    @torch.no_grad()
+    def estimate_loss(self):
+        test_loss = 0.0
+        train_loss = 0.0
+        for split in [True, False]:
+            losses = torch.zeros(self.eval_steps)
+            for k in range(self.eval_steps):
+                x, y = self.data_reader.get_batch(split)
+                logits = self.inference(x)
+                my_loss = calculate_loss(logits, y)
+                losses[k] = my_loss.item()
+            loss = losses.mean()
+            if split:
+                test_loss = loss.item()
+            else:
+                train_loss = loss.item()
+        return test_loss, train_loss
 
     def train(self, max_steps: int, starting_step: int = 0):
+        self.model.train()
         for step in range(starting_step, max_steps):
             lr = self.learning_schedule.update(step)
             self.optimizer.zero_grad()
@@ -102,15 +123,15 @@ class TrainingLoop:
             self.scaler.update()
 
             if step % self.eval_interval == 0 or step == max_steps - 1:
-                losses = estimate_loss()
-                print(f"step {step}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+                test_loss, train_loss = self.estimate_loss()
+                print(f"step {step}: train loss {train_loss:.4f}, val loss {test_loss:.4f}")
                 self.checkpointer.save(
                     step=step,
-                    train_loss=losses["train"],
-                    val_loss=losses["val"],
+                    train_loss=train_loss,
+                    val_loss=test_loss,
                     learning_rate=lr,
                     eval_text="coming soon"
                 )
 
-                if self.early_stopping and self.early_stopping.step(val_loss):
+                if self.early_stopping and self.early_stopping.step(test_loss):
                     break
