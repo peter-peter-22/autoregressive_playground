@@ -34,7 +34,7 @@ class ChatCompletion:
             tokenizer: Tokenizer,
             model: nn.Module,
             device:str,
-            stop_token_ids:int,
+            stop_token_ids:list[int],
             max_context_length:int,
             top_p: float = 0.9,
             top_k: int | None = None,
@@ -57,15 +57,15 @@ class ChatCompletion:
 
         # Encode chat
         idx = torch.tensor(
-            encode_chat(instruction=instruction, input=input),
+            [encode_chat(instruction=instruction, input=input)],
             device=self.device,
             dtype=torch.long,
         )
 
         for _ in range(self.max_new_tokens):
             # Get logits
-            idx_cond = idx[:, self.max_context_length:]
-            logits = self.model(idx_cond)
+            idx_cond = idx[:, -self.max_context_length:]
+            logits = self.model(idx_cond).logits
             logits = logits[:, -1, :]
 
             # Top k
