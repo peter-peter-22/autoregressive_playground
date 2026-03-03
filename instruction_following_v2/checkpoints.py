@@ -5,6 +5,9 @@ from datetime import datetime
 import torch
 import torch.nn as nn
 
+from system_metrics import get_system_metrics
+from learning_metrics import get_grad_metrics, get_weight_metrics
+
 
 class CheckpointCleaner:
     def __init__(
@@ -52,6 +55,7 @@ class Checkpointer:
         self.state_dir = os.path.join(checkpoint_dir, "state")
         self.info_dir = os.path.join(checkpoint_dir, "info")
         self.cleaner = cleaner
+        self.pending_metric_logs=[]
 
         # Create missing directories
         os.makedirs(self.state_dir, exist_ok=True)
@@ -159,3 +163,20 @@ class Checkpointer:
         step_num = int(last_step.split("/")[-2]) + 1
         print(f"Starting from step {step_num}")
         return step_num
+
+    def create_log(self,current_loss:float):
+        total_norm, max_grad = get_grad_metrics(self.model)
+        max_weight, total_weight_norm = get_weight_metrics(self.model)
+        self.pending_metric_logs.append({
+            "gradient": {
+                "total_norm": total_norm,
+                "max_grad": max_grad,
+            },
+            "weight": {
+                "max_weight": max_weight,
+                "total_weight_norm": total_weight_norm,
+            },
+            "system": get_system_metrics(),
+            "current_loss": current_loss
+        })
+        print(f"Current loss: {current_loss}")
