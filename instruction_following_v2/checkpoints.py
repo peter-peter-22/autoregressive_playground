@@ -5,8 +5,8 @@ from datetime import datetime
 import torch
 import torch.nn as nn
 
-from system_metrics import get_system_metrics
 from learning_metrics import get_grad_metrics, get_weight_metrics
+from system_metrics import get_system_metrics
 
 
 class CheckpointCleaner:
@@ -55,7 +55,7 @@ class Checkpointer:
         self.state_dir = os.path.join(checkpoint_dir, "state")
         self.info_dir = os.path.join(checkpoint_dir, "info")
         self.cleaner = cleaner
-        self.pending_metric_logs=[]
+        self.pending_metric_logs: list = []
 
         # Create missing directories
         os.makedirs(self.state_dir, exist_ok=True)
@@ -74,14 +74,13 @@ class Checkpointer:
         return os.path.join(self.info_dir, f"{step:06d}.pt")
 
     def get_state_checkpoint_path(self, step):
-        return os.path.join(self.state_dir,  f"{step:06d}.pt")
+        return os.path.join(self.state_dir, f"{step:06d}.pt")
 
     def save(
             self,
             step: int,
             train_loss: float,
             val_loss: float,
-            metric_logs: list[dict],
             learning_rate: float,
             eval_text: str
     ):
@@ -98,7 +97,7 @@ class Checkpointer:
             "learning_rate": learning_rate,
             "step": step,
             "text": eval_text,
-            "metrics": json.dumps(metric_logs)
+            "metrics": json.dumps(self.pending_metric_logs)
         }
 
         state_path = self.get_state_checkpoint_path(step)
@@ -108,6 +107,7 @@ class Checkpointer:
         torch.save(info, info_path)
 
         self.cleaner.step(state_path)
+        self.pending_metric_logs = []
 
     def load(self, path: str, remove_prefix: bool = True):
         state = torch.load(path)
@@ -164,7 +164,7 @@ class Checkpointer:
         print(f"Starting from step {step_num}")
         return step_num
 
-    def create_log(self,current_loss:float):
+    def create_log(self, current_loss: float):
         total_norm, max_grad = get_grad_metrics(self.model)
         max_weight, total_weight_norm = get_weight_metrics(self.model)
         self.pending_metric_logs.append({

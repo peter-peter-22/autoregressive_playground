@@ -1,71 +1,116 @@
-best_val_loss = float("inf")
-patience = 5
-min_delta = 0.01
-patience_counter = 0
-early_stopping = False
+from dataclasses import dataclass
+from typing import Callable
 
-for step in range(checkpoint or 0, max_iters):
-    optimizer.zero_grad()
+import torch
+import torch.nn as nn
 
-    xb, yb = get_batch("train")
+from checkpoints import Checkpointer
+from instruction_following_v2.learning_schedule import LearningScheduler
+from loss import calculate_loss
+from training_data_reader import TrainingDataReader
 
-    if autocast_enabled:
-        with torch.amp.autocast(dtype=torch.float16, device_type=device_type):
-            logits, loss = model(xb, yb)
-    else:
-        logits, loss = model(xb, yb)
 
-    # exit if the loss is invalid
-    if not torch.isfinite(loss):
-        raise Exception("Non-finite loss detected.")
+class EarlyStopping:
+    def __init__(
+            self,
+            patience: int,
+            min_delta: float = 0.01
+    ):
+        self.patience = patience
+        self.best_loss = float('inf')
+        self.min_delta = min_delta
+        self.patience_counter = 0
 
-    scaler.scale(loss).backward()
-    scaler.unscale_(optimizer)
+    def step(self, loss: float):
+        improvement = self.best_loss - loss
+        if improvement >= self.min_delta:
+            self.best_loss = loss
+            self.patience_counter = 0
+        else:
+            self.patience_counter += 1
+            print(f"Not enough improvement, patience: {self.patience - self.patience_counter}")
+            if self.patience_counter == self.patience:
+                print("Early stopping")
+                return True
+        return False
 
-    if step % log_metrics_interval == 0:
-        total_norm, max_grad = get_grad_metrics(model)
-        max_weight, total_weight_norm = get_weight_metrics(model)
-        metric_logs.append({
-            "gradient": {
-                "total_norm": total_norm,
-                "max_grad": max_grad,
-            },
-            "weight": {
-                "max_weight": max_weight,
-                "total_weight_norm": total_weight_norm,
-            },
-            "system": get_system_metrics(),
-            "current_loss": loss.item()
-        })
 
-    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+@dataclass
+class AutoCastConfig:
+    dtype: torch.dtype
+    device_type: str
 
-    scaler.step(optimizer)
-    scaler.update()
 
-    if step % eval_interval == 0 or step == max_iters - 1:
-        losses = estimate_loss()
-        print(f"step {step}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-        state_path, info_path = save_checkpoint(
-            step=step,
-            model=model,
-            optimizer=optimizer,
-            scaler=scaler,
-            train_loss=losses["train"],
-            val_loss=losses["val"],
-            metric_logs=metric_logs
-        )
-        checkpoint_cleaner.step(state_path)
-        metric_logs = []
+class TrainingLoop:
+    def __init__(
+            self,
+            inference: Callable[[torch.Tensor], torch.Tensor],
+            model: nn.Module,
+            optimizer: torch.optim.Optimizer,
+            scaler: torch.amp.GradScaler,
+            eval_interval: int,
+            log_interval: int,
+            checkpointer: Checkpointer,
+            early_stopping: EarlyStopping,
+            data_reader: TrainingDataReader,
+            autocast: AutoCastConfig | None,
+            gradient_clip: float | None,
+            learning_schedule: LearningScheduler
+    ):
+        self.step = 0
+        self.model = model
+        self.optimizer = optimizer
+        self.scaler = scaler
+        self.eval_interval = eval_interval
+        self.checkpointer = checkpointer
+        self.early_stopping = early_stopping
+        self.data_reader = data_reader
+        self.autocast = autocast
+        self.log_interval = log_interval
+        self.gradient_clip = gradient_clip
+        self.inference = inference
+        self.learning_schedule = learning_schedule
 
-        if early_stopping:
-            val_loss = losses['val']
-            improvement = best_val_loss - val_loss
-            if improvement >= min_delta:
-                best_val_loss = val_loss
-                patience_counter = 0
+    def train(self, max_steps: int, starting_step: int = 0):
+        for step in range(starting_step, max_steps):
+            lr = self.learning_schedule.update(step)
+            self.optimizer.zero_grad()
+
+            xb, yb = self.data_reader.get_batch(False)
+
+            if self.autocast:
+                with torch.amp.autocast(dtype=self.autocast.dtype, device_type=self.autocast.device_type):
+                    logits = self.inference(xb)
             else:
-                patience_counter += 1
-                if patience_counter == patience:
-                    print("Early stopping")
+                logits = self.inference(xb)
+            loss = calculate_loss(logits, yb)
+
+            # exit if the loss is invalid
+            if not torch.isfinite(loss):
+                raise Exception("Non-finite loss detected.")
+
+            self.scaler.scale(loss).backward()
+            self.scaler.unscale_(self.optimizer)
+
+            if step % self.log_interval == 0:
+                self.checkpointer.create_log(loss.item())
+
+            if self.gradient_clip is not None:
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+
+            if step % self.eval_interval == 0 or step == max_steps - 1:
+                losses = estimate_loss()
+                print(f"step {step}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+                self.checkpointer.save(
+                    step=step,
+                    train_loss=losses["train"],
+                    val_loss=losses["val"],
+                    learning_rate=lr,
+                    eval_text="coming soon"
+                )
+
+                if self.early_stopping and self.early_stopping.step(val_loss):
                     break

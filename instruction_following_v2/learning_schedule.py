@@ -1,7 +1,6 @@
-import torch
-
 import math
 
+import torch
 
 
 class LearningScheduler:
@@ -19,7 +18,7 @@ class LearningScheduler:
         self.min_lr = min_lr
         self.max_lr = max_lr
 
-    def get_lr(self,step):
+    def get_lr(self, step):
         # 1) linear warmup for warmup_steps steps
         if step < self.warmup_steps:
             return self.max_lr * (step + 1) / (self.warmup_steps + 1)
@@ -32,8 +31,8 @@ class LearningScheduler:
         coefficient = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coefficient ranges 0..1
         return self.min_lr + coefficient * (self.max_lr - self.min_lr)
 
-    def update(self,step):
+    def update(self, step):
         lr = self.get_lr(step)
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = lr
-
+        return lr
