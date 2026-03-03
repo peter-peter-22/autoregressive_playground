@@ -1,7 +1,5 @@
 import torch
-from torch.nn import nn
-
-from optimizer import get_optim_groups
+import torch.nn as nn
 
 def get_optim_groups(model: nn.Module):
     """Apply weight decay to one dimensional to linear weights, exclude bias and layer norm."""

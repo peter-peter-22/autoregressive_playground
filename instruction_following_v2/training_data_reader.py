@@ -24,11 +24,12 @@ class TrainingDataReader:
             device: str,
             ignore_index: int
     ):
+        max_random=1000
         self.context_length = context_length
         self.padding_token_id = padding_token_id
         self.batch_size = batch_size
-        self.train_iterator = infinite_iterator(train_dataset,seed=random.randint(0,1000))
-        self.test_iterator = infinite_iterator(test_dataset,seed=random.randint(0,1000))
+        self.train_iterator = infinite_iterator(train_dataset,seed=random.randint(0,max_random))
+        self.test_iterator = infinite_iterator(test_dataset,seed=random.randint(0,max_random))
         self.device = device
         self.ignore_index = ignore_index
 

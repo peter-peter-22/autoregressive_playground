@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from datasets import load_from_disk
 from tokenizers import Tokenizer
 from chat_template import encode_chat
 
@@ -17,6 +16,7 @@ def apply_top_p(logits: torch.Tensor, p: float, min_keep: int = 1) -> torch.Tens
 
     # Mask tokens after the top-p cutoff
     mask = cum_probs > p
+
     # Protect at least min_keep tokens
     mask[..., :min_keep] = False
 
@@ -55,6 +55,7 @@ class ChatCompletion:
     @torch.no_grad()
     def generate(self, instruction:str,input:str|None=None):
 
+        # Encode chat
         idx = torch.tensor(
             encode_chat(instruction=instruction, input=input),
             device=self.device,
@@ -62,10 +63,12 @@ class ChatCompletion:
         )
 
         for _ in range(self.max_new_tokens):
+            # Get logits
             idx_cond = idx[:, self.max_context_length:]
             logits = self.model(idx_cond)
             logits = logits[:, -1, :]
 
+            # Top k
             if self.top_k is not None:
                 top_logits, top_pos = torch.topk(logits, self.top_k)
                 logits = torch.where(
@@ -73,15 +76,19 @@ class ChatCompletion:
                     input=torch.tensor(float("-inf")),
                     other=logits
                 )
+
+            # Top p
             logits=apply_top_p(logits,self.top_p)
 
+            # Sampling with temperature
             probs = nn.functional.softmax(logits / self.temperature, dim=-1)
-
             next_id = torch.multinomial(probs, num_samples=1)
             idx = torch.cat([idx, next_id], dim=1)
 
-            if self.stop_tokens and next_id.item() in self.stop_tokens:
+            # Handle stop tokens if needed
+            if self.stop_token_ids and next_id.item() in self.stop_token_ids:
                 print("Reached stop token")
                 break
 
+        # Decode
         return self.tokenizer.decode(idx.tolist())
