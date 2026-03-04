@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Callable
+from typing import TypeAlias
 
 import torch
 import torch.nn as nn
@@ -8,7 +9,7 @@ from checkpoints import Checkpointer
 from instruction_following_v2.learning_schedule import LearningScheduler
 from loss import calculate_loss
 from training_data_reader import TrainingDataReader
-from typing import TypeAlias
+
 
 class EarlyStopping:
     def __init__(
@@ -40,7 +41,9 @@ class AutoCastConfig:
     dtype: torch.dtype
     device_type: str
 
-SimpleInference:TypeAlias=Callable[[torch.Tensor], torch.Tensor]
+
+SimpleInference: TypeAlias = Callable[[torch.Tensor], torch.Tensor]
+
 
 class TrainingLoop:
     def __init__(
@@ -52,13 +55,13 @@ class TrainingLoop:
             checkpoint_interval: int,
             log_interval: int,
             checkpointer: Checkpointer,
-            early_stopping: EarlyStopping|None,
+            early_stopping: EarlyStopping | None,
             data_reader: TrainingDataReader,
             autocast: AutoCastConfig | None,
             gradient_clip: float | None,
             learning_schedule: LearningScheduler,
             eval_steps: int,
-            generate:Callable[[],str]
+            generate: Callable[[], str]
     ):
         self.step = 0
         self.model = model
@@ -74,7 +77,7 @@ class TrainingLoop:
         self.inference = inference
         self.learning_schedule = learning_schedule
         self.eval_steps = eval_steps
-        self.generate=generate
+        self.generate = generate
 
     @torch.no_grad()
     def estimate_loss(self):
@@ -85,7 +88,7 @@ class TrainingLoop:
             for k in range(self.eval_steps):
                 x, y = self.data_reader.get_batch(split)
                 logits = self.inference(x)
-                my_loss = calculate_loss(logits, y)
+                my_loss = calculate_loss(logits=logits, targets=y)
                 losses[k] = my_loss.item()
             loss = losses.mean()
             if split:
@@ -107,7 +110,7 @@ class TrainingLoop:
                     logits = self.inference(xb)
             else:
                 logits = self.inference(xb)
-            loss = calculate_loss(logits, yb)
+            loss = calculate_loss(logits=logits, targets=yb)
 
             # exit if the loss is invalid
             if not torch.isfinite(loss):
@@ -117,7 +120,7 @@ class TrainingLoop:
             self.scaler.unscale_(self.optimizer)
 
             if step % self.log_interval == 0:
-                self.checkpointer.create_log(loss.item())
+                self.checkpointer.create_log(loss.item(), step)
 
             if self.gradient_clip is not None:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.gradient_clip)
@@ -129,7 +132,7 @@ class TrainingLoop:
                 test_loss, train_loss = self.estimate_loss()
                 print(f"step {step}: train loss {train_loss:.4f}, val loss {test_loss:.4f}")
 
-                eval_text=self.generate()
+                eval_text = self.generate()
                 print(eval_text)
 
                 self.checkpointer.save(

@@ -172,13 +172,13 @@ class Checkpointer:
         files = sorted(files)
         self.cleaner.history = files
         last_step = files[-1]
-        self.load(last_step)
+        self.load(os.path.join(self.state_dir, last_step))
 
-        step_num = int(last_step.split("/")[-2]) + 1
+        step_num = int(last_step.split(".")[-2]) + 1
         print(f"Starting from step {step_num}")
         return step_num
 
-    def create_log(self, current_loss: float):
+    def create_log(self, current_loss: float, step: int):
         total_norm, max_grad = get_grad_metrics(self.model)
         max_weight, total_weight_norm = get_weight_metrics(self.model)
         self.pending_metric_logs.append({
@@ -191,7 +191,9 @@ class Checkpointer:
                 "total_weight_norm": total_weight_norm,
             },
             "system": get_system_metrics(),
-            "current_loss": current_loss
+            "current_loss": current_loss,
+            "time": datetime.now().isoformat(),
+            "step": step
         })
         print(f"Current loss: {current_loss}")
 

@@ -1,3 +1,5 @@
+import os
+
 import torch
 from datasets import Dataset
 
@@ -28,8 +30,9 @@ def sft_training(
         eval_text_tokens: int,
         context_length: int,
         eos_id: int,
-        inference:SimpleInference,
-        checkpoint_dir:str
+        inference: SimpleInference,
+        checkpoint_dir: str,
+        compile_model: bool
 ):
     # Cuda settings
     torch.cuda.empty_cache()
@@ -37,6 +40,9 @@ def sft_training(
     torch.backends.cudnn.allow_tf32 = True  # allow tf32 on cudnn
     device = "cuda" if torch.cuda.is_available() else "cpu"
     device_type = 'cuda' if 'cuda' in device else 'cpu'
+    model.to(device)
+    if compile_model:
+        model.compile()
 
     # Optimizer
     optimizer = get_optimizer(
@@ -74,11 +80,12 @@ def sft_training(
             "eos_id": eos_id
         }
     )
-    checkpointer.preserve_progress(
-        preserve_checkpoints,
-        checkpoint_interval=checkpoint_interval,
-        max_steps=max_steps
-    )
+    if preserve_checkpoints:
+        checkpointer.preserve_progress(
+            preserve_checkpoints,
+            checkpoint_interval=checkpoint_interval,
+            max_steps=max_steps
+        )
     starting_step = checkpointer.auto_load()
 
     # Data reader
@@ -115,7 +122,7 @@ def sft_training(
     )
 
     def generate():
-        return chat.generate(instruction="Hello")
+        return chat.generate(instruction="Briefly describe gravity.")
 
     # Training loop
     training_loop = TrainingLoop(
@@ -137,4 +144,4 @@ def sft_training(
     training_loop.train(max_steps=max_steps, starting_step=starting_step)
 
     # Save
-    zip_directory()
+    zip_directory(checkpoint_dir, os.path.join(checkpoint_dir, "output.zip"))

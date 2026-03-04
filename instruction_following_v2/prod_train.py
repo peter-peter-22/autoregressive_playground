@@ -1,5 +1,6 @@
 import math
 
+import torch
 from datasets import load_from_disk
 
 from instruction_following_v2.sft_training import sft_training
@@ -20,14 +21,17 @@ if __name__ == "__main__":
     warmup_steps = math.ceil(max_steps * 0.05)
     preserve_checkpoints = [0.5, 0.75]
     eval_text_tokens = 200
+    checkpoint_dir = "checkpoints_prod"
 
     # Extract model config
     context_length = model.config.n_positions
     eos_id = model.config.eos_token_id
 
+
     # Standard inference function
     def inference(x: torch.Tensor):
         return model(x).logits
+
 
     # Run
     sft_training(
@@ -45,5 +49,8 @@ if __name__ == "__main__":
         preserve_checkpoints=preserve_checkpoints,
         eval_text_tokens=eval_text_tokens,
         context_length=context_length,
-        eos_id=eos_id
+        eos_id=eos_id,
+        inference=inference,
+        checkpoint_dir=checkpoint_dir,
+        compile_model=False
     )
