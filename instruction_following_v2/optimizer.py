@@ -19,7 +19,7 @@ def get_optim_groups(model: nn.Module):
 
     return optim_groups
 
-def get_optimizer(model: nn.Module, beta_1, beta_2, learning_rate, eps):
+def get_optimizer(model: nn.Module, beta_1:float, beta_2:float, learning_rate:float, eps:float):
     return torch.optim.AdamW(
         get_optim_groups(model),
         lr=learning_rate,

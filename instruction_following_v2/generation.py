@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from tokenizers import Tokenizer
 from chat_template import encode_chat
+from training_loop import SimpleInference
+
 
 def apply_top_p(logits: torch.Tensor, p: float, min_keep: int = 1) -> torch.Tensor:
     """
@@ -32,7 +34,7 @@ class ChatCompletion:
     def __init__(
             self,
             tokenizer: Tokenizer,
-            model: nn.Module,
+            inference: SimpleInference,
             device:str,
             stop_token_ids:list[int],
             max_context_length:int,
@@ -49,7 +51,7 @@ class ChatCompletion:
         self.device = device
         self.max_context_length = max_context_length
         self.max_new_tokens=max_new_tokens
-        self.model = model
+        self.inference = inference
 
 
     @torch.no_grad()
@@ -65,7 +67,7 @@ class ChatCompletion:
         for _ in range(self.max_new_tokens):
             # Get logits
             idx_cond = idx[:, -self.max_context_length:]
-            logits = self.model(idx_cond).logits
+            logits = self.inference(idx_cond)
             logits = logits[:, -1, :]
 
             # Top k

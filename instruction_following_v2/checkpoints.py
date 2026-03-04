@@ -1,6 +1,7 @@
 import json
 import os
 from datetime import datetime
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -19,6 +20,16 @@ class CheckpointCleaner:
         self.history: list[str] = []
         self.preserve_checkpoints = preserve_checkpoints
 
+    def remove(self, path: str):
+        if not self.preserve_checkpoints or path not in self.preserve_checkpoints:
+            try:
+                os.remove(path)
+                print(f"Removed checkpoint {path}")
+            except FileNotFoundError:
+                print(f"The removed checkpoint {path} does not exist")
+        else:
+            print(f"Preserving checkpoint {path}")
+
     def step(self, new_checkpoint_path: str):
         self.history.append(new_checkpoint_path)
         count = len(self.history)
@@ -26,15 +37,14 @@ class CheckpointCleaner:
             remove = count - self.max_checkpoints
             for i in range(remove):
                 path = self.history[i]
-                if not self.preserve_checkpoints or path not in self.preserve_checkpoints:
-                    try:
-                        os.remove(path)
-                        print(f"Removed checkpoint {path}")
-                    except FileNotFoundError:
-                        print(f"The removed checkpoint {path} does not exist")
-                else:
-                    print(f"Preserving checkpoint {path}")
+                self.remove(path)
             self.history = self.history[remove:]
+
+    def finish(self):
+        """Delete all temporal checkpoints"""
+        remove = self.history[:-1]
+        for path in remove:
+            self.remove(path)
 
 
 class Checkpointer:
@@ -45,9 +55,7 @@ class Checkpointer:
             scaler: torch.amp.GradScaler | None,
             checkpoint_dir: str,
             cleaner: CheckpointCleaner,
-            max_context_length: int,
-            eval_interval: int,
-            batch_size: int,
+            starting_info: dict[str, Any]
     ):
         self.model = model
         self.optimizer = optimizer
@@ -65,10 +73,9 @@ class Checkpointer:
         starting_info_path = os.path.join(checkpoint_dir, "start.pt")
         torch.save({
             "time": datetime.now().isoformat(),
-            "block_size": max_context_length,
-            "batch_size": batch_size,
-            "eval_interval": eval_interval,
+            **starting_info
         }, starting_info_path)
+        print(starting_info)
 
     def get_info_checkpoint_path(self, step):
         return os.path.join(self.info_dir, f"{step:06d}.pt")
@@ -152,8 +159,15 @@ class Checkpointer:
         self.cleaner.preserve_checkpoints = paths
 
     def auto_load(self):
+        """Find and load the lastest checkpoint if any. Return the next step number."""
+        if not os.path.exists(self.state_dir):
+            print("The checkpoints directory does not exists")
+            return 0
         files = [f for f in os.listdir(self.state_dir) if os.path.isfile(os.path.join(self.state_dir, f))]
-        print(f"Found {len(files)} checkpoints")
+        count = len(files)
+        print(f"Found {count} checkpoints")
+        if count == 0:
+            return 0
 
         files = sorted(files)
         self.cleaner.history = files
@@ -180,3 +194,6 @@ class Checkpointer:
             "current_loss": current_loss
         })
         print(f"Current loss: {current_loss}")
+
+    def finish(self):
+        self.cleaner.finish()

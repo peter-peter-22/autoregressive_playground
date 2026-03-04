@@ -8,7 +8,7 @@ from checkpoints import Checkpointer
 from instruction_following_v2.learning_schedule import LearningScheduler
 from loss import calculate_loss
 from training_data_reader import TrainingDataReader
-
+from typing import TypeAlias
 
 class EarlyStopping:
     def __init__(
@@ -40,29 +40,31 @@ class AutoCastConfig:
     dtype: torch.dtype
     device_type: str
 
+SimpleInference:TypeAlias=Callable[[torch.Tensor], torch.Tensor]
 
 class TrainingLoop:
     def __init__(
             self,
-            inference: Callable[[torch.Tensor], torch.Tensor],
+            inference: SimpleInference,
             model: nn.Module,
             optimizer: torch.optim.Optimizer,
             scaler: torch.amp.GradScaler,
-            eval_interval: int,
+            checkpoint_interval: int,
             log_interval: int,
             checkpointer: Checkpointer,
-            early_stopping: EarlyStopping,
+            early_stopping: EarlyStopping|None,
             data_reader: TrainingDataReader,
             autocast: AutoCastConfig | None,
             gradient_clip: float | None,
             learning_schedule: LearningScheduler,
-            eval_steps: int
+            eval_steps: int,
+            generate:Callable[[],str]
     ):
         self.step = 0
         self.model = model
         self.optimizer = optimizer
         self.scaler = scaler
-        self.eval_interval = eval_interval
+        self.eval_interval = checkpoint_interval
         self.checkpointer = checkpointer
         self.early_stopping = early_stopping
         self.data_reader = data_reader
@@ -72,6 +74,7 @@ class TrainingLoop:
         self.inference = inference
         self.learning_schedule = learning_schedule
         self.eval_steps = eval_steps
+        self.generate=generate
 
     @torch.no_grad()
     def estimate_loss(self):
@@ -117,7 +120,7 @@ class TrainingLoop:
                 self.checkpointer.create_log(loss.item())
 
             if self.gradient_clip is not None:
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.gradient_clip)
 
             self.scaler.step(self.optimizer)
             self.scaler.update()
@@ -125,13 +128,19 @@ class TrainingLoop:
             if step % self.eval_interval == 0 or step == max_steps - 1:
                 test_loss, train_loss = self.estimate_loss()
                 print(f"step {step}: train loss {train_loss:.4f}, val loss {test_loss:.4f}")
+
+                eval_text=self.generate()
+                print(eval_text)
+
                 self.checkpointer.save(
                     step=step,
                     train_loss=train_loss,
                     val_loss=test_loss,
                     learning_rate=lr,
-                    eval_text="coming soon"
+                    eval_text=eval_text
                 )
 
                 if self.early_stopping and self.early_stopping.step(test_loss):
                     break
+
+        self.checkpointer.finish()
