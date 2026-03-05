@@ -1,5 +1,3 @@
-import os
-
 import torch
 from datasets import Dataset
 
@@ -144,4 +142,4 @@ def sft_training(
     training_loop.train(max_steps=max_steps, starting_step=starting_step)
 
     # Save
-    zip_directory(checkpoint_dir, os.path.join(checkpoint_dir, "output.zip"))
+    zip_directory(checkpoint_dir, "output.zip")

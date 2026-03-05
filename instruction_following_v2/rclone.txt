@@ -1,0 +1,22 @@
+usage:
+rclone config
+...
+rclone copy file.zip o: --progress
+
+
+error:
+tls: failed to verify certificate: x509: certificate signed by unknown authority
+
+fix:
+sudo apt update && sudo apt install --reinstall ca-certificates
+
+
+error:
+install fails
+
+fix:
+sudo apt update
+
+
+display size:
+ls -lh output.txt

@@ -3,7 +3,7 @@ import math
 import torch
 from datasets import load_from_disk
 
-from instruction_following_v2.sft_training import sft_training
+from sft_training import sft_training
 from load_pre_trained import model
 
 if __name__ == "__main__":

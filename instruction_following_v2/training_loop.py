@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 
 from checkpoints import Checkpointer
-from instruction_following_v2.learning_schedule import LearningScheduler
+from learning_schedule import LearningScheduler
 from loss import calculate_loss
 from training_data_reader import TrainingDataReader
 

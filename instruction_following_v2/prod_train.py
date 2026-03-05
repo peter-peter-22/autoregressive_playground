@@ -3,13 +3,13 @@ import math
 import torch
 from datasets import load_from_disk
 
-from instruction_following_v2.sft_training import sft_training
+from sft_training import sft_training
 from load_pre_trained import model
 
 if __name__ == "__main__":
     # Config
     epochs = 5
-    batch_size = 8
+    batch_size = 8 # 16 in final
     eval_steps = math.ceil(800 / batch_size)
     test_dataset = load_from_disk("tokenized_data/test")
     train_dataset = load_from_disk("tokenized_data/train")
@@ -52,5 +52,5 @@ if __name__ == "__main__":
         eos_id=eos_id,
         inference=inference,
         checkpoint_dir=checkpoint_dir,
-        compile_model=False
+        compile_model=False # True in final
     )

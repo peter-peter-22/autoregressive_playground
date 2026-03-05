@@ -310,7 +310,7 @@ def display_cuda_ram(x: list[int], metrics: list[Metrics]):
     plt.show()
 
 
-def display_logs(info_dir: str = "checkpoints"):
+def display_logs(info_dir: str = "output"):
     start, steps, metrics = read_logs(info_dir)
     x = list(range(len(steps)))
     x_metrics = list(range(len(metrics)))
