@@ -17,3 +17,15 @@ https://www.kimi.com/chat/19ce1ac2-d092-8718-8000-0923a25c14fd?chat_enter_method
 # multi head latent attention
 
 https://www.kimi.com/chat/19ce1ca2-d0d2-8e9b-8000-09238a5b2d86?chat_enter_method=history
+
+# token routing
+
+https://www.kimi.com/chat/19ce18f0-0ff2-8023-8000-09233e3ea208?chat_enter_method=history
+
+# mamba selective state space
+
+https://www.kimi.com/chat/19ce14ec-51d2-80b8-8000-0923856bab9a?chat_enter_method=history
+
+# other
+
+- repetition penality
